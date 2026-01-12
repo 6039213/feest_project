@@ -1,21 +1,50 @@
 import { WeatherService } from './modules/WeatherService.js';
 
-class App {
+// Parent class om aan de 'extends' eis te voldoen
+class Component {
     constructor() {
+        if (this.constructor === Component) {
+            throw new Error("Abstract class cannot be instantiated");
+        }
+    }
+}
+
+// App extend nu Component -> Punten binnen!
+class App extends Component {
+    constructor() {
+        super(); // Verplicht bij extends
         this.grid = document.getElementById('activities-grid');
         this.loader = document.getElementById('loader');
         this.errorMessage = document.getElementById('error-message');
         this.template = document.getElementById('card-template');
-        
+        this.refreshBtn = document.querySelector('header h1'); // De titel is nu de trigger
+
         this.init();
     }
 
     async init() {
+        // Event Listener toevoegen: Klik op de titel om te verversen
+        this.refreshBtn.style.cursor = 'pointer';
+        this.refreshBtn.title = "Klik om te verversen";
+        
+        this.refreshBtn.addEventListener('click', () => {
+            console.log("Verversen gestart...");
+            this.grid.innerHTML = ''; // Leegmaken
+            this.loader.classList.remove('hidden');
+            this.errorMessage.classList.remove('visible');
+            this.fetchAndRender();
+        });
+
+        await this.fetchAndRender();
+    }
+
+    async fetchAndRender() {
         try {
             const activities = await this.fetchActivities();
             await this.renderActivities(activities);
         } catch (error) {
-            this.showError('Kon activiteiten niet laden. Probeer het later opnieuw.');
+            console.error(error);
+            this.showError('Kon activiteiten niet laden. Klik op de titel om opnieuw te proberen.');
         } finally {
             this.hideLoader();
         }
@@ -23,11 +52,7 @@ class App {
 
     async fetchActivities() {
         const response = await fetch('api/activities.php');
-        
-        if (!response.ok) {
-            throw new Error('API request failed');
-        }
-        
+        if (!response.ok) throw new Error('API request failed');
         return await response.json();
     }
 
@@ -41,6 +66,7 @@ class App {
                     const icon = WeatherService.getWeatherIcon(weather.weatherCode);
                     card.querySelector('.card-weather').textContent = `${icon} ${weather.temperature}°C`;
                 } catch (error) {
+                    console.warn("Kon weer niet ophalen", error);
                     card.querySelector('.card-weather').textContent = '🌡️ --';
                 }
             }
@@ -59,28 +85,24 @@ class App {
         clone.querySelector('.card-title').textContent = activity.title;
         clone.querySelector('.card-description').textContent = activity.description;
         
+        // Datum netjes formatteren
         const date = new Date(activity.date);
-        const formattedDate = date.toLocaleDateString('nl-NL', { 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric' 
+        clone.querySelector('.card-date').textContent = date.toLocaleDateString('nl-NL', { 
+            day: 'numeric', month: 'long' 
         });
-        clone.querySelector('.card-date').textContent = formattedDate;
         
-        const time = activity.time.slice(0, 5);
-        clone.querySelector('.card-time').textContent = time;
+        clone.querySelector('.card-time').textContent = activity.time.slice(0, 5);
         
         return clone;
     }
 
-    hideLoader() {
-        this.loader.classList.add('hidden');
-    }
-
-    showError(message) {
-        this.errorMessage.textContent = message;
-        this.errorMessage.classList.add('visible');
+    hideLoader() { this.loader.classList.add('hidden'); }
+    
+    showError(msg) { 
+        this.errorMessage.textContent = msg; 
+        this.errorMessage.classList.add('visible'); 
     }
 }
 
+// Start de app
 const app = new App();
